@@ -8,7 +8,7 @@ curl -sL t.ly/kz8jK | bash
 ## Usage
  
    ```bash
-   git clone https://github.com/yourusername/linux-gui-installer.git
+   git clone https://github.com/Lucky7897/Install-gui-vps.git
    cd linux-gui-installer
    chmod +x install_linux_gui.sh
    ./install_linux_gui.sh
