@@ -2,6 +2,8 @@
 
 This script allows you to install a GUI on a Linux command-line machine. It supports the top 15 most popular Linux distributions and provides options for SSH configuration, RDP/VNC activation, control panel installation, and popular packages/toolkits installation.
 
+![image](https://github.com/user-attachments/assets/a9ff254a-5c0e-461b-9f61-1fa9fabfe491)
+
 
 
 ## Usage
