@@ -1,0 +1,13 @@
+# Update package index
+sudo apt update
+
+# Install prerequisites
+sudo apt install software-properties-common apt-transport-https wget
+
+# Add Webmin repository and its key
+wget -q http://www.webmin.com/jcameron-key.asc -O- | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] http://download.webmin.com/download/repository sarge contrib"
+
+# Install Webmin
+sudo apt update
+sudo apt install webmin
