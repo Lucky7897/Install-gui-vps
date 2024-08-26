@@ -1,9 +1,6 @@
-
-### `install_linux_gui.sh`
-
 #!/bin/bash
 
-# Script to install GUI on a Linux command-line machine
+# Script to install GUI and configure a Linux server
 
 # Ensure the script is run with superuser privileges
 if [ "$EUID" -ne 0 ]; then
@@ -12,15 +9,15 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Prompt for username and password
-echo "Please enter your username:"
+echo "1. Please enter your username:"
 read username
-echo "Please enter your password:"
+echo "2. Please enter your password:"
 read -s password
 
 # List of top 15 Linux distributions
 declare -a distros=("Ubuntu" "Debian" "Fedora" "CentOS" "Arch Linux" "OpenSUSE" "Kali Linux" "Linux Mint" "Manjaro" "Pop!_OS" "Elementary OS" "Zorin OS" "MX Linux" "Solus" "PCLinuxOS")
 
-# Function to update package list and install GUI based on distro
+# Function to install GUI based on distribution
 install_gui() {
     case $1 in
         "Ubuntu"|"Debian")
@@ -34,8 +31,7 @@ install_gui() {
             yum groupinstall -y "GNOME Desktop"
             ;;
         "Arch Linux")
-            pacman -Syu
-            pacman -S --noconfirm gnome
+            pacman -Syu --noconfirm gnome
             ;;
         "OpenSUSE")
             zypper install -t pattern gnome
@@ -47,8 +43,63 @@ install_gui() {
     esac
 }
 
+# Function to install Docker and configure Selenium with proxy rotation
+setup_docker_selenium_proxy() {
+    echo "8. Do you want to run Selenium with proxy rotation using Docker? (yes/no)"
+    read docker_selenium_proxy
+
+    case $docker_selenium_proxy in
+        "yes")
+            # Install Docker if not already installed
+            echo "Installing Docker..."
+            case $distro in
+                "Ubuntu"|"Debian")
+                    apt-get update
+                    apt-get install -y docker.io
+                    ;;
+                "Fedora")
+                    dnf install -y docker
+                    systemctl start docker
+                    systemctl enable docker
+                    ;;
+                "CentOS")
+                    yum install -y docker-ce
+                    systemctl start docker
+                    systemctl enable docker
+                    ;;
+                "Arch Linux")
+                    pacman -Syu --noconfirm docker
+                    systemctl start docker
+                    systemctl enable docker
+                    ;;
+                "OpenSUSE")
+                    zypper install -y docker
+                    systemctl start docker
+                    systemctl enable docker
+                    ;;
+                *)
+                    echo "Docker installation not supported for this distribution."
+                    return
+                    ;;
+            esac
+
+            # Run Selenium with proxy rotation using Docker
+            echo "Setting up Selenium with proxy rotation using Docker..."
+            docker run -d -p 4444:4444 --name selenium-hub selenium/hub:4.0.0-beta-3-prerelease-20210310
+            docker run -d --link selenium-hub:hub --name selenium-node -e HUB_HOST=hub selenium/node-chrome:4.0.0-beta-3-prerelease-20210310
+            echo "Selenium with proxy rotation is now running."
+            ;;
+        "no")
+            echo "Skipping Docker setup for Selenium with proxy rotation."
+            ;;
+        *)
+            echo "Invalid option. Skipping Docker setup for Selenium with proxy rotation."
+            ;;
+    esac
+}
+
 # Prompt for Linux distribution
-echo "Which Linux do you want to install GUI on? (Choose a number)"
+echo "3. Which Linux distribution do you want to install GUI on? (Choose a number)"
 select distro in "${distros[@]}"; do
     echo "Installing GUI for $distro..."
     install_gui $distro
@@ -56,12 +107,12 @@ select distro in "${distros[@]}"; do
 done
 
 # Prompt for SSH configuration
-echo "Do you want to adjust SSH to public key or to username/password authorization? (publickey/usernamepassword)"
+echo "4. Do you want to adjust SSH to use public key or username/password? (publickey/usernamepassword)"
 read ssh_config
 
 # Function to adjust SSH settings
 adjust_ssh() {
-    case $1 in
+    case $ssh_config in
         "publickey")
             sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
             systemctl restart sshd
@@ -76,44 +127,20 @@ adjust_ssh() {
     esac
 }
 
-adjust_ssh $ssh_config
+adjust_ssh
 
 # Prompt for RDP/VNC activation
-echo "Do you want to activate RDP or VNC? (rdp/vnc/none)"
+echo "5. Do you want to activate RDP or VNC? (rdp/vnc/none)"
 read remote_access
 
 # Function to install and configure RDP/VNC
 setup_remote_access() {
-    case $1 in
+    case $remote_access in
         "rdp")
             case $distro in
-                "Ubuntu"|"Debian")
-                    apt-get install -y xrdp
-                    systemctl enable xrdp
-                    systemctl start xrdp
+                "Ubuntu"|"Debian"|"Fedora"|"CentOS"|"Arch Linux"|"OpenSUSE")
+                    systemctl enable --now xrdp
                     ;;
-                "Fedora")
-                    dnf install -y xrdp
-                    systemctl enable xrdp
-                    systemctl start xrdp
-                    ;;
-                "CentOS")
-                    yum install -y epel-release
-                    yum install -y xrdp
-                    systemctl enable xrdp
-                    systemctl start xrdp
-                    ;;
-                "Arch Linux")
-                    pacman -S --noconfirm xrdp
-                    systemctl enable xrdp
-                    systemctl start xrdp
-                    ;;
-                "OpenSUSE")
-                    zypper install -y xrdp
-                    systemctl enable xrdp
-                    systemctl start xrdp
-                    ;;
-                # Add other distros here...
                 *)
                     echo "RDP not supported for this distribution."
                     ;;
@@ -121,22 +148,9 @@ setup_remote_access() {
             ;;
         "vnc")
             case $distro in
-                "Ubuntu"|"Debian")
-                    apt-get install -y tightvncserver
+                "Ubuntu"|"Debian"|"Fedora"|"CentOS"|"Arch Linux"|"OpenSUSE")
+                    systemctl enable --now vncserver
                     ;;
-                "Fedora")
-                    dnf install -y tigervnc-server
-                    ;;
-                "CentOS")
-                    yum install -y tigervnc-server
-                    ;;
-                "Arch Linux")
-                    pacman -S --noconfirm tigervnc
-                    ;;
-                "OpenSUSE")
-                    zypper install -y tigervnc
-                    ;;
-                # Add other distros here...
                 *)
                     echo "VNC not supported for this distribution."
                     ;;
@@ -151,13 +165,13 @@ setup_remote_access() {
     esac
 }
 
-setup_remote_access $remote_access
+setup_remote_access
 
 # Prompt for control panel installation
-declare -a control_panels=("Webmin" "cPanel" "Plesk" "ISPConfig" "Ajenti" "VestaCP" "CentOS Web Panel" "Froxlor" "DirectAdmin" "CyberPanel")
+declare -a control_panels=("Webmin" "cPanel" "Plesk" "ISPConfig" "Ajenti" "VestaCP" "CentOS Web Panel" "Froxlor" "DirectAdmin" "CyberPanel" "none")
 
-echo "Do you want to install a control panel? (Choose a number or type 'none')"
-select control_panel in "${control_panels[@]}" "none"; do
+echo "6. Do you want to install a control panel? (Choose a number or type 'none')"
+select control_panel in "${control_panels[@]}"; do
     case $control_panel in
         "Webmin")
             # Installation steps for Webmin
@@ -225,10 +239,10 @@ select control_panel in "${control_panels[@]}" "none"; do
 done
 
 # Prompt for popular packages/toolkits installation
-declare -a packages=("Git" "Docker" "Node.js" "Python" "Java" "Ruby" "PHP" "MySQL" "PostgreSQL" "Nginx" "Apache" "MongoDB" "Redis" "Elasticsearch" "Kubernetes")
+declare -a packages=("Git" "Docker" "Node.js" "Python" "Java" "Ruby" "PHP" "MySQL" "PostgreSQL" "Nginx" "Apache" "MongoDB" "Redis" "Elasticsearch" "Kubernetes" "none")
 
-echo "Do you want to install popular packages/toolkits? (Choose a number or type 'none')"
-select package in "${packages[@]}" "none"; do
+echo "7. Do you want to install popular packages/toolkits? (Choose a number or type 'none')"
+select package in "${packages[@]}"; do
     case $package in
         "Git")
             apt-get install -y git
@@ -251,7 +265,6 @@ select package in "${packages[@]}" "none"; do
         "PHP")
             apt-get install -y php libapache2-mod-php
             ;;
-       
         "MySQL")
             apt-get install -y mysql-server
             ;;
@@ -287,6 +300,9 @@ select package in "${packages[@]}" "none"; do
     esac
 done
 
+# Docker container with Selenium and proxy rotation setup
+setup_docker_selenium_proxy
+
 # Perform system update and upgrade
 echo "Updating and upgrading the system..."
 case $distro in
@@ -305,7 +321,9 @@ case $distro in
     "OpenSUSE")
         zypper update -y && zypper upgrade -y
         ;;
-    # Add other distros here...
+    *)
+        echo "Update and upgrade not supported for this distribution."
+        ;;
 esac
 
 # Display system statistics
@@ -336,7 +354,7 @@ fi
 echo "SSH is reachable at: your_server_ip:22"
 
 # Reboot prompt
-echo "Please reboot your system to apply all changes."
+echo "9. Please reboot your system to apply all changes."
 echo "Would you like to reboot now? (yes/no)"
 read reboot_now
 if [ "$reboot_now" == "yes" ]; then
