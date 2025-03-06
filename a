@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# Update package list and upgrade system
+echo "Updating system..."
+sudo apt update && sudo apt upgrade -y
+
+# Install necessary packages
+echo "Installing necessary packages..."
+sudo apt install -y mosh xrdp openssh-server curl wget git ufw net-tools
+
+# Install desktop environment (Kali Desktop)
+echo "Installing Kali Desktop environment..."
+sudo apt install -y kali-desktop-xfce
+
+# Install and configure xRDP
+echo "Installing and configuring xRDP..."
+sudo apt install -y xrdp
+sudo systemctl enable xrdp
+sudo systemctl start xrdp
+echo "xRDP is installed and running."
+
+# Configure firewall for SSH, mosh, and xRDP access
+echo "Configuring firewall..."
+sudo ufw allow ssh
+sudo ufw allow 6000:6100/tcp  # xRDP
+sudo ufw allow 2200/udp        # mosh
+sudo ufw enable
+echo "Firewall configured."
+
+# Install mosh
+echo "Installing mosh..."
+sudo apt install -y mosh
+echo "mosh installed."
+
+# Install SSH server
+echo "Installing OpenSSH server..."
+sudo apt install -y openssh-server
+sudo systemctl enable ssh
+sudo systemctl start ssh
+echo "OpenSSH server installed and running."
+
+# Enable password authentication for SSH
+echo "Configuring SSH password authentication..."
+sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+sudo sed -i 's/^#ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
+sudo sed -i 's/^PubkeyAuthentication yes/PubkeyAuthentication no/' /etc/ssh/sshd_config
+sudo systemctl restart ssh
+echo "Password and interactive authentication enabled for SSH."
+
+# Create a new user (You can change the username to anything you want)
+USER_NAME="newuser"
+echo "Creating user: $USER_NAME"
+sudo useradd -m -s /bin/bash $USER_NAME
+sudo passwd $USER_NAME
+
+# Add the user to sudoers
+echo "Adding $USER_NAME to sudoers..."
+sudo usermod -aG sudo $USER_NAME
+
+# Ensure all necessary services are running
+echo "Ensuring all services are active..."
+sudo systemctl restart xrdp
+sudo systemctl restart ssh
+
+# Check for the active SSH login method (Password / Interactive / Key)
+echo "Checking active SSH login method..."
+if sudo grep -q 'PasswordAuthentication yes' /etc/ssh/sshd_config; then
+    echo "Password authentication is enabled."
+else
+    echo "Password authentication failed to enable. Reverting to fallback methods..."
+    sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    sudo systemctl restart ssh
+fi
+
+# Test mosh UDP fallback
+echo "Testing mosh UDP connection..."
+if ! mosh server-ip; then
+    echo "MOSH failed, falling back to SSH..."
+    ssh -p 22 user@server-ip
+else
+    echo "MOSH connection established successfully."
+fi
+
+# Install any required dependencies for optimizations (optional, depending on your needs)
+echo "Installing optimization packages..."
+sudo apt install -y preload htop vim
+
+# Clean up unused packages
+echo "Cleaning up unused packages..."
+sudo apt autoremove -y
+
+# Print final status
+echo "Installation and setup complete."
+echo "You can now use mosh, SSH (password and interactive authentication), or xRDP to access your system remotely."
+echo "SSH connection can fall back to password authentication if necessary."
